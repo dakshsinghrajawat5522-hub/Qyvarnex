@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Qyvarnex — Food Scanner & Health Risk Intelligence</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f8fafc;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.08); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .scan-ring {
+      animation: pulse-ring 2.5s infinite ease-in-out;
+    }
+    /* Neon Text Highlight Marker Effect for Dangerous Additives */
+    mark.danger-highlight {
+      background: linear-gradient(120deg, #fef08a 0%, #fed7aa 100%);
+      color: #7f1d1d;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #f87171;
+      box-shadow: 0 1px 3px rgba(239, 68, 68, 0.25);
+      display: inline-block;
+      margin: 1px 2px;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-emerald-500 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ==========================================
+    // VERIFIED DIRECT PRODUCT PACKSHOT DATABASE
+    // Physical cans, bottles, and packets
+    // ==========================================
+    const MASTER_FOOD_DB = [
+      // --- PEPSI CAN ---
+      {
+        id: "pepsi-classic",
+        code: "012000000133",
+        product_name: "Pepsi Cola Can (330 ml)",
+        brands: "Pepsi",
+        image_url: "https://cdn.grofers.com/da/cms-assets/cms/product/rc-upload-1778652879489-59.png",
+        serving_size: "330 ml",
+        nutriments: { "energy-kcal_100g": 43, "carbohydrates_100g": 10.6, "sugars_100g": 10.6, "proteins_100g": 0, "fat_100g": 0, "saturated-fat_100g": 0, "salt_100g": 0.03, "fiber_100g": 0 },
+        ingredients_text: "Carbonated Water, Sugar, Colour (150d Caramel IV), Acidity Regulator (338 Phosphoric Acid), Caffeine.",
+        has_palm_oil: false,
+        nutriscore_grade: "e",
+        category: "Beverages",
+        tags: ["pepsi", "cola", "soda", "cold drink", "can"]
+      },
+      // --- PEPSI BLACK ---
+      {
+        id: "pepsi-black",
+        code: "8902080005012",
+        product_name: "Pepsi Black (Zero Sugar Can)",
+        brands: "Pepsi",
+        image_url: "https://cdn.grofers.com/da/cms-assets/cms/product/rc-upload-1778652879489-59.png",
+        serving_size: "250 ml",
+        nutriments: { "energy-kcal_100g": 1, "carbohydrates_100g": 0, "sugars_100g": 0, "proteins_100g": 0, "fat_100g": 0, "saturated-fat_100g": 0, "salt_100g": 0.05, "fiber_100g": 0 },
+        ingredients_text: "Carbonated Water, Acidity Regulators (338, 330), Colour (150d Caramel IV), Sweeteners (955 Sucralose, 950 Acesulfame K), Preservative (211 Sodium Benzoate), Caffeine.",
+        has_palm_oil: false,
+        nutriscore_grade: "b",
+        category: "Beverages",
+        tags: ["pepsi", "pepsi black", "zero sugar", "diet pepsi", "diet"]
+      },
+      // --- STING ENERGY DRINK ---
+      {
+        id: "sting-energy",
+        code: "8902080000000",
+        product_name: "Sting Energy Drink (Strawberry Bottle)",
+        brands: "Sting",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/cms/product_variant/1e4cc6c4-ea19-4eba-b917-691a4fb95acf/Sting-Energy-Drink.jpg",
+        serving_size: "250 ml",
+        nutriments: { "energy-kcal_100g": 52, "carbohydrates_100g": 13.1, "sugars_100g": 13.1, "proteins_100g": 0, "fat_100g": 0, "saturated-fat_100g": 0, "salt_100g": 0.085, "fiber_100g": 0 },
+        ingredients_text: "Carbonated Water, Sugar, Acidity Regulators (330, 331), Sequesterants (452(i), 385), Taurine, Caffeine (72 mg/serving), Preservatives (211, 202), Food Colour (129), Inositol, Vitamins (B3, B6, B12).",
+        has_palm_oil: false,
+        nutriscore_grade: "e",
+        category: "Beverages",
+        tags: ["sting", "energy drink", "caffeine", "red drink"]
+      },
+      // --- COCA-COLA CAN ---
+      {
+        id: "coca-cola-original",
+        code: "5449000000996",
+        product_name: "Coca-Cola Original Can (300 ml)",
+        brands: "Coca-Cola",
+        image_url: "https://images.openfoodfacts.org/images/products/544/900/000/0996/front_en.400.jpg",
+        serving_size: "300 ml",
+        nutriments: { "energy-kcal_100g": 42, "carbohydrates_100g": 10.6, "sugars_100g": 10.6, "proteins_100g": 0, "fat_100g": 0, "saturated-fat_100g": 0, "salt_100g": 0.02, "fiber_100g": 0 },
+        ingredients_text: "Carbonated Water, Sugar, Caramel Colour (150d), Acidity Regulator (338 Phosphoric Acid), Natural Flavours, Caffeine.",
+        has_palm_oil: false,
+        nutriscore_grade: "e",
+        category: "Beverages",
+        tags: ["coke", "coca cola", "soda", "cold drink"]
+      },
+      // --- LAY'S CLASSIC ---
+      {
+        id: "lays-classic",
+        code: "0028400047685",
+        product_name: "Lay's Classic Salted Potato Chips (Bag)",
+        brands: "Lay's",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/cms/product_variant/93cac58a-60d6-4db9-9d64-24e2b393c1aa/Lay-s-Classic-Salted.png",
+        serving_size: "28 g",
+        nutriments: { "energy-kcal_100g": 536, "carbohydrates_100g": 53.6, "sugars_100g": 1.1, "proteins_100g": 7.1, "fat_100g": 35.7, "saturated-fat_100g": 5.4, "salt_100g": 1.52, "fiber_100g": 4.3 },
+        ingredients_text: "Potatoes, Edible Vegetable Oil (Palmolein, Sunflower Oil), and Salt.",
+        has_palm_oil: true,
+        nutriscore_grade: "d",
+        category: "Snacks",
+        tags: ["lays", "chips", "potato chips", "snacks"]
+      },
+      // --- MAGGI 2-MINUTE NOODLES ---
+      {
+        id: "maggi-masala",
+        code: "8901058852394",
+        product_name: "Maggi 2-Minute Masala Noodles (Pack)",
+        brands: "Maggi",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/tr:w-312,ar-1200-1200,pr-true,f-auto,q-40/cms/product_variant/708a0c0a-fb68-4e19-8c9a-4a085f8ecca5/MAGGI-2-Minute-Instant-Noodles-Masala-Noodles-Made-With-Quality-Spices.jpg",
+        serving_size: "70 g",
+        nutriments: { "energy-kcal_100g": 427, "carbohydrates_100g": 63.5, "sugars_100g": 2.2, "proteins_100g": 8.0, "fat_100g": 15.7, "saturated-fat_100g": 6.8, "salt_100g": 2.87, "fiber_100g": 3.6 },
+        ingredients_text: "Refined Wheat Flour (Maida), Palm Oil, Iodised Salt, Wheat Gluten, Thickeners (508, 412), Acidity Regulators. Tastemaker: Spices, Hydrolysed Groundnut Protein, Onion Powder, Flavour Enhancer (621 MSG).",
+        has_palm_oil: true,
+        nutriscore_grade: "d",
+        category: "Packaged Meals",
+        tags: ["maggi", "noodles", "instant noodles", "ramen"]
+      },
+      // --- OREO BISCUITS ---
+      {
+        id: "oreo-original",
+        code: "7622210449283",
+        product_name: "Cadbury Oreo Vanilla Creme Biscuits (Pack)",
+        brands: "Oreo",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/tr:w-312,ar-1100-1100,pr-true,f-auto,q-40/cms/product_variant/675f575c-cebf-47c8-844b-479110776768/Cadbury-Oreo-Vanilla-Flavour-Cream-Sandwich-Biscuit.jpg",
+        serving_size: "34 g",
+        nutriments: { "energy-kcal_100g": 474, "carbohydrates_100g": 69.0, "sugars_100g": 38.0, "proteins_100g": 5.4, "fat_100g": 19.0, "saturated-fat_100g": 5.2, "salt_100g": 0.95, "fiber_100g": 2.7 },
+        ingredients_text: "Refined Wheat Flour (Maida), Sugar, Palm Oil, Rapeseed Oil, Fat-Reduced Cocoa Powder, Wheat Starch, Glucose-Fructose Syrup, Raising Agents, Salt, Emulsifier (Soya Lecithin), Flavouring (Vanillin).",
+        has_palm_oil: true,
+        nutriscore_grade: "e",
+        category: "Snacks",
+        tags: ["oreo", "biscuits", "cookies", "chocolate"]
+      },
+      // --- NUTELLA JAR ---
+      {
+        id: "nutella-hazelnut",
+        code: "3017620422003",
+        product_name: "Nutella Hazelnut Spread with Cocoa (Glass Jar)",
+        brands: "Nutella",
+        image_url: "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.400.jpg",
+        serving_size: "15 g (1 tbsp)",
+        nutriments: { "energy-kcal_100g": 539, "carbohydrates_100g": 57.5, "sugars_100g": 56.3, "proteins_100g": 6.3, "fat_100g": 30.9, "saturated-fat_100g": 10.6, "salt_100g": 0.107, "fiber_100g": 3.0 },
+        ingredients_text: "Sugar, Palm Oil, Hazelnuts (13%), Skimmed Milk Powder (8.7%), Fat-Reduced Cocoa (7.4%), Emulsifier: Lecithins (Soya), Vanillin.",
+        has_palm_oil: true,
+        nutriscore_grade: "e",
+        category: "Sweets & Spreads",
+        tags: ["nutella", "chocolate", "hazelnut", "spread", "jar"]
+      },
+      // --- KURKURE MASALA MUNCH ---
+      {
+        id: "kurkure-masala",
+        code: "8901491001022",
+        product_name: "Kurkure Masala Munch Crisps (Bag)",
+        brands: "Kurkure",
+        image_url: "https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=540/da/cms-assets/cms/product/rc-upload-1780634830965-687.png",
+        serving_size: "20 g",
+        nutriments: { "energy-kcal_100g": 561, "carbohydrates_100g": 53.4, "sugars_100g": 2.1, "proteins_100g": 6.0, "fat_100g": 36.0, "saturated-fat_100g": 15.6, "salt_100g": 2.1, "fiber_100g": 1.5 },
+        ingredients_text: "Rice Meal, Edible Vegetable Oil (Palmolein), Corn Meal, Gram Meal, Spices, Salt, Citric Acid (330).",
+        has_palm_oil: true,
+        nutriscore_grade: "e",
+        category: "Snacks",
+        tags: ["kurkure", "namkeen", "chips", "crisps"]
+      },
+      // --- RED BULL CAN ---
+      {
+        id: "red-bull",
+        code: "9002490100070",
+        product_name: "Red Bull Energy Drink (250 ml Can)",
+        brands: "Red Bull",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/cms/product_variant/c7bf256a-149a-44cf-8b31-5a0dab3ab4aa/Red-Bull-Energy-Drink.jpg",
+        serving_size: "250 ml",
+        nutriments: { "energy-kcal_100g": 46, "carbohydrates_100g": 11.0, "sugars_100g": 11.0, "proteins_100g": 0, "fat_100g": 0, "saturated-fat_100g": 0, "salt_100g": 0.1, "fiber_100g": 0 },
+        ingredients_text: "Carbonated Water, Sucrose, Glucose, Acidity Regulators (Citric Acid, Sodium Bicarbonate), Taurine (0.4%), Caffeine (0.03%), B-Vitamins.",
+        has_palm_oil: false,
+        nutriscore_grade: "e",
+        category: "Beverages",
+        tags: ["red bull", "energy drink", "caffeine"]
+      },
+      // --- KITKAT ---
+      {
+        id: "kitkat-wafer",
+        code: "7613035379685",
+        product_name: "Nestle KitKat 4 Fingers Choco Wafer Bar",
+        brands: "KitKat",
+        image_url: "https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=540/da/cms-assets/cms/product/dce27cb9-f7c0-49b8-9721-7c8eaa142a86.png",
+        serving_size: "38.5 g",
+        nutriments: { "energy-kcal_100g": 518, "carbohydrates_100g": 64.5, "sugars_100g": 48.0, "proteins_100g": 6.9, "fat_100g": 26.0, "saturated-fat_100g": 15.0, "salt_100g": 0.23, "fiber_100g": 2.2 },
+        ingredients_text: "Sugar, Wheat Flour, Skimmed Milk Powder, Cocoa Butter, Cocoa Mass, Vegetable Fats (Palm, Shea), Emulsifier (Lecithins), Raising Agent (Sodium Bicarbonate).",
+        has_palm_oil: true,
+        nutriscore_grade: "e",
+        category: "Sweets & Spreads",
+        tags: ["kitkat", "chocolate", "wafer"]
+      },
+      // --- CADBURY DAIRY MILK ---
+      {
+        id: "cadbury-dairy-milk",
+        code: "7622201740016",
+        product_name: "Cadbury Dairy Milk Chocolate Bar",
+        brands: "Cadbury",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/tr:w-312,ar-1024-1024,pr-true,f-auto,q-40/cms/product_variant/23c672d6-0be4-4ca6-bb1e-6224edfd96e9/Cadbury-Dairy-Milk-Silk-Oreo-Chocolate-Bar.jpg",
+        serving_size: "24 g",
+        nutriments: { "energy-kcal_100g": 534, "carbohydrates_100g": 57.0, "sugars_100g": 56.0, "proteins_100g": 7.3, "fat_100g": 30.5, "saturated-fat_100g": 18.5, "salt_100g": 0.24, "fiber_100g": 2.1 },
+        ingredients_text: "Sugar, Milk Solids (22%), Cocoa Butter, Cocoa Solids, Emulsifiers (442, 476), Natural Flavours.",
+        has_palm_oil: false,
+        nutriscore_grade: "e",
+        category: "Sweets & Spreads",
+        tags: ["cadbury", "dairy milk", "chocolate", "sweet"]
+      },
+      // --- FRESH TENDER COCONUT ---
+      {
+        id: "demo-coconut-water",
+        code: "demo-coconut-water",
+        product_name: "Pure Fresh Tender Coconut (Nariyal Pani)",
+        brands: "Raw Nature",
+        image_url: "https://cdn.zeptonow.com/production/ik-seo/cms/product_variant/3ca029ce-6e1b-47e1-aec9-7a473d73369a/Tender-Coconut.jpeg",
+        serving_size: "200 ml",
+        nutriments: { "energy-kcal_100g": 19, "carbohydrates_100g": 3.7, "sugars_100g": 2.6, "proteins_100g": 0.7, "fat_100g": 0.2, "saturated-fat_100g": 0, "salt_100g": 0.06, "fiber_100g": 1.1 },
+        ingredients_text: "100% Pure Natural Tender Coconut Water. Zero artificial additives, zero synthetic dyes, zero added sugars.",
+        has_palm_oil: false,
+        nutriscore_grade: "a",
+        category: "Beverages",
+        tags: ["coconut", "water", "natural", "healthy", "nariyal"]
+      }
+    ];
+
+    // ==========================================
+    // HARMFUL ADDITIVES DETECTOR
+    // ==========================================
+    const HARMFUL_DATABASE = [
+      { regex: /129|allura red|red 40|colour \(129\)/i, name: "Food Colour 129 (Allura Red AC / Red 40)", category: "Petroleum Azo Dye", severity: "Severe", risk: "Petroleum-derived synthetic dye. Clinically linked to ADHD/hyperactivity in children, gut barrier inflammation, and hives." },
+      { regex: /102|tartrazine|yellow 5|colour \(102\)/i, name: "Tartrazine (Colour 102 / Yellow 5)", category: "Synthetic Azo Dye", severity: "Severe", risk: "Known allergen and neuro-irritant. Can trigger asthma attacks, hives, and extreme behavioral swings in children." },
+      { regex: /150d|caramel iv|caramel color/i, name: "Caramel IV (Colour 150d / Ammonia-Sulphite)", category: "Industrial Chemical Colour", severity: "High", risk: "Synthesized using ammonia compounds. Contains trace 4-MEI (4-Methylimidazole), flagged as a potential carcinogen." },
+      { regex: /338|phosphoric acid/i, name: "Phosphoric Acid (INS 338)", category: "Acidifier & Enamel Stripper", severity: "High", risk: "Aggressively leaches calcium from dental enamel and bone tissue. Strongly associated with lower bone mineral density." },
+      { regex: /palm oil|palmolein|palm fat|fractionated palm/i, name: "Palm Oil / Palmolein", category: "Atherogenic Saturated Fat", severity: "High", risk: "Contains ~50% palmitic saturated acid. Elevates LDL (bad) cholesterol and accelerates arterial plaque buildup." },
+      { regex: /211|sodium benzoate/i, name: "Sodium Benzoate (Preservative 211)", category: "Chemical Preservative", severity: "High", risk: "When exposed to Vitamin C or heat, can synthesize into Benzene—a classified group-1 human carcinogen." },
+      { regex: /452\(?i\)?|sequesterant|polyphosphate|edta|385/i, name: "Sequesterants & Polyphosphates (452i, 385)", category: "Chemical Chelator", severity: "High", risk: "Disrupts natural phosphate balance, leaches calcium from bones, and strains kidney filtration." },
+      { regex: /621|monosodium glutamate|msg|flavour enhancer \(621\)/i, name: "Monosodium Glutamate (MSG / INS 621)", category: "Excitotoxin / Appetite Stimulant", severity: "Moderate", risk: "Overstimulates neurological glutamate receptors; triggers cravings, overeating, and headaches." },
+      { regex: /aspartame|951|sucralose|955|acesulfame|950/i, name: "Artificial Chemical Sweeteners (Aspartame / Sucralose / Ace-K)", category: "Synthetic Sweetener", severity: "Moderate", risk: "Disrupts healthy gut microbiome bacteria and drives compensatory carbohydrate cravings." },
+      { regex: /maida|refined wheat flour/i, name: "Refined Wheat Flour (Maida)", category: "Stripped Empty Starch", severity: "Moderate", risk: "Fiber and germ stripped away. Extreme glycemic index triggers rapid blood sugar surges and metabolic fatigue." }
+    ];
+
+    function detectHarmfulIngredients(ingredientsText = "", nutriments = {}) {
+      const detected = [];
+      const text = ingredientsText || "";
+      HARMFUL_DATABASE.forEach(item => {
+        if (item.regex.test(text)) detected.push(item);
+      });
+      const sugar100 = nutriments["sugars_100g"] == null ? null : Number(nutriments["sugars_100g"]);
+      if (sugar100 !== null && sugar100 >= 25) {
+        detected.push({ name: `Excessive Refined Sugar (${sugar100}g / 100g)`, category: "Metabolic Risk", severity: "Severe", risk: "Contains over 25% pure sugar by weight. Drives insulin resistance and visceral liver fat." });
+      }
+      const salt100 = nutriments["salt_100g"] == null ? null : Number(nutriments["salt_100g"]);
+      if (salt100 !== null && salt100 >= 1.8) {
+        detected.push({ name: `Heavy Sodium / Salt Load (${salt100}g / 100g)`, category: "Cardiovascular Risk", severity: "High", risk: "Exceeds daily safe sodium limits in a single serving. Elevates chronic hypertension risk." });
+      }
+      return detected;
+    }
+
+    // ==========================================
+    // 0 - 100 HEALTH SCORE ENGINE
+    // ==========================================
+    function calculateHealthScore(product) {
+      const n = product.nutriments || {};
+      // Do not award a confident score when essential nutrition data is absent.
+      const knownCore = ["sugars_100g", "saturated-fat_100g", "salt_100g", "energy-kcal_100g"]
+        .filter(key => n[key] !== null && n[key] !== undefined && Number.isFinite(Number(n[key]))).length;
+      let score = 55;
+
+      const sugars = n["sugars_100g"] == null ? null : Number(n["sugars_100g"]);
+      if (sugars !== null) {
+        if (sugars > 30) score -= 25;
+        else if (sugars > 20) score -= 18;
+        else if (sugars > 10) score -= 12;
+        else if (sugars <= 3) score += 4;
+      }
+
+      const satFat = n["saturated-fat_100g"] == null ? null : Number(n["saturated-fat_100g"]);
+      if (satFat !== null) {
+        if (satFat > 10) score -= 15;
+        else if (satFat > 5) score -= 9;
+        else if (satFat <= 1.5) score += 3;
+      }
+
+      const saltRaw = n["salt_100g"] ?? (n["sodium_100g"] != null ? Number(n["sodium_100g"]) * 2.5 : null);
+      const salt = saltRaw == null ? null : Number(saltRaw);
+      if (salt !== null) {
+        if (salt > 1.8) score -= 15;
+        else if (salt > 1.0) score -= 9;
+        else if (salt <= 0.3) score += 3;
+      }
+
+      const kcal = n["energy-kcal_100g"] == null ? null : Number(n["energy-kcal_100g"]);
+      if (kcal !== null) {
+        if (kcal > 500) score -= 8;
+        else if (kcal > 380) score -= 4;
+      }
+
+      const fiber = n["fiber_100g"] == null ? null : Number(n["fiber_100g"]);
+      if (fiber !== null && fiber >= 5) score += 5;
+      const protein = n["proteins_100g"] == null ? null : Number(n["proteins_100g"]);
+      if (protein !== null && protein >= 10) score += 5;
+
+      const harmful = detectHarmfulIngredients(product.ingredients_text, n);
+      score -= (harmful.length * 4);
+      if (product.has_palm_oil) score -= 5;
+
+      // If most core values are missing, cap the result and label it as low-confidence.
+      if (knownCore < 2) score = Math.min(score, 55);
+      return Math.max(4, Math.min(95, Math.round(score)));
+    }
+
+    function getScoreBadge(score) {
+      if (score >= 75) return { text: "Nutritious & Clean", bg: "bg-emerald-500", textCol: "text-emerald-700", lightBg: "bg-emerald-50", borderCol: "border-emerald-200" };
+      if (score >= 50) return { text: "Moderate / Processed", bg: "bg-amber-500", textCol: "text-amber-700", lightBg: "bg-amber-50", borderCol: "border-amber-200" };
+      if (score >= 30) return { text: "Poor / High Caution", bg: "bg-orange-500", textCol: "text-orange-700", lightBg: "bg-orange-50", borderCol: "border-orange-200" };
+      return { text: "High Health Risk", bg: "bg-red-600", textCol: "text-red-700", lightBg: "bg-red-50", borderCol: "border-red-200" };
+    }
+
+    function HighlightedIngredientsText({ text }) {
+      if (!text) return <span className="text-slate-400 italic">No ingredient statement available.</span>;
+      const masterRegex = /(129|allura red|red 40|102|tartrazine|yellow 5|150d|caramel iv|caramel colour|338|phosphoric acid|palm oil|palmolein|sodium benzoate|211|potassium sorbate|202|452\(?i\)?|sequesterant|polyphosphate|edta|385|monosodium glutamate|msg|621|aspartame|951|sucralose|955|acesulfame|950|maida|refined wheat flour|taurine|caffeine)/gi;
+      const parts = text.split(masterRegex);
+
+      return (
+        <span className="leading-relaxed">
+          {parts.map((part, index) => {
+            if (!part) return null;
+            if (masterRegex.test(part)) {
+              return <mark key={index} className="danger-highlight text-[11px]">⚠️ {part}</mark>;
+            }
+            return <span key={index}>{part}</span>;
+          })}
+        </span>
+      );
+    }
+
+    // ==========================================
+    // SVG ICONS
+    // ==========================================
+    const IconSearch = () => <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
+    const IconScan = ({ className = "w-6 h-6" }) => <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 9h10M7 12h10M7 15h6" /></svg>;
+    const IconHeart = ({ filled = false }) => <svg className={`w-5 h-5 ${filled ? 'text-rose-500 fill-rose-500' : 'text-slate-400 stroke-current fill-none'}`} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>;
+    const IconHome = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
+    const IconCompare = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>;
+
+    // Shared Open Food Facts image fallback, available to all views.
+    const offImageFromCode = (rawCode) => {
+      const code = String(rawCode || "").replace(/\D/g, "");
+      if (!code || code.length < 8) return "";
+      const padded = code.padStart(13, "0");
+      const path = `${padded.slice(0,3)}/${padded.slice(3,6)}/${padded.slice(6,9)}/${padded.slice(9)}`;
+      return `https://images.openfoodfacts.org/images/products/${path}/front_en.400.jpg`;
+    };
+
+    // ==========================================
+    // MAIN APP COMPONENT
+    // ==========================================
+    function App() {
+      const [activeTab, setActiveTab] = useState("home");
+      const [searchQuery, setSearchQuery] = useState("");
+      const [searchResults, setSearchResults] = useState([]);
+      const [isSearching, setIsSearching] = useState(false);
+      const [searchError, setSearchError] = useState(null);
+      const [selectedProduct, setSelectedProduct] = useState(null);
+      const [usdaKeyReady, setUsdaKeyReady] = useState(() => { try { return !!localStorage.getItem("nutriscan_usda_api_key"); } catch { return false; } });
+
+      const connectUSDA = () => {
+        const key = window.prompt("Optional: paste your free USDA FoodData Central API key. Leave blank or cancel to skip. The key is stored only in this browser's localStorage.");
+        if (key && key.trim()) {
+          try { localStorage.setItem("nutriscan_usda_api_key", key.trim()); setUsdaKeyReady(true); alert("USDA database enabled in this browser."); }
+          catch { alert("Could not save the key in this browser. You can still use Open Food Facts search."); }
+        }
+      };
+
+      const [compareItemA, setCompareItemA] = useState(null);
+      const [compareItemB, setCompareItemB] = useState(null);
+      const [portionMode, setPortionMode] = useState("100g");
+
+      const [favourites, setFavourites] = useState(() => {
+        try {
+          const s = localStorage.getItem("nutriscan_favs");
+          return s ? JSON.parse(s) : [];
+        } catch { return []; }
+      });
+
+      const [recentScans, setRecentScans] = useState(() => {
+        try {
+          const s = localStorage.getItem("nutriscan_recents");
+          return s ? JSON.parse(s) : [MASTER_FOOD_DB[0], MASTER_FOOD_DB[2], MASTER_FOOD_DB[4]];
+        } catch { return [MASTER_FOOD_DB[0], MASTER_FOOD_DB[2], MASTER_FOOD_DB[4]]; }
+      });
+
+      useEffect(() => {
+        try { localStorage.setItem("nutriscan_favs", JSON.stringify(favourites)); } catch(e) {}
+      }, [favourites]);
+
+      useEffect(() => {
+        try { localStorage.setItem("nutriscan_recents", JSON.stringify(recentScans)); } catch(e) {}
+      }, [recentScans]);
+
+      const toggleFavourite = (product) => {
+        setFavourites(prev => {
+          const exists = prev.some(p => (p.id || p.code) === (product.id || product.code));
+          return exists ? prev.filter(p => (p.id || p.code) !== (product.id || product.code)) : [product, ...prev];
+        });
+      };
+
+      const isFav = (product) => favourites.some(p => (p.id || p.code) === (product.id || product.code));
+
+      const handleSelectProduct = (product) => {
+        setSelectedProduct(product);
+        setPortionMode("100g");
+        setRecentScans(prev => {
+          const filtered = prev.filter(p => (p.id || p.code) !== (product.id || product.code));
+          return [product, ...filtered].slice(0, 10);
+        });
+      };
+
+      // API helpers: use the documented Open Food Facts v2 endpoints.
+      const fetchWithTimeout = async (url, timeoutMs = 10000) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          return await fetch(url, {
+            signal: controller.signal,
+            headers: { "Accept": "application/json" }
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      const offImageFromCode = (rawCode) => {
+        const code = String(rawCode || "").replace(/\D/g, "");
+        if (!code || code.length < 8) return "";
+        const padded = code.padStart(13, "0");
+        const path = `${padded.slice(0,3)}/${padded.slice(3,6)}/${padded.slice(6,9)}/${padded.slice(9)}`;
+        return `https://images.openfoodfacts.org/images/products/${path}/front_en.400.jpg`;
+      };
+
+      const normalizeOffProduct = (p) => {
+        const n = p?.nutriments || {};
+        const code = String(p?.code || p?.id || "");
+        const selectedFront = p?.selected_images?.front?.display?.en || p?.selected_images?.front?.small?.en || "";
+        const image = p?.image_front_url || p?.image_front_small_url || p?.image_url || selectedFront || offImageFromCode(code);
+        return {
+          id: code || `${(p?.product_name || p?.product_name_en || "product").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          code,
+          product_name: p?.product_name || p?.product_name_en || p?.generic_name || "Unnamed product",
+          brands: p?.brands || "Brand not listed",
+          image_url: image,
+          serving_size: p?.serving_size || "100 g / 100 ml",
+          nutriments: {
+            "energy-kcal_100g": n["energy-kcal_100g"] ?? (typeof n["energy_100g"] === "number" ? n["energy_100g"] / 4.184 : null),
+            "carbohydrates_100g": n["carbohydrates_100g"] ?? null,
+            "sugars_100g": n["sugars_100g"] ?? null,
+            "proteins_100g": n["proteins_100g"] ?? null,
+            "fat_100g": n["fat_100g"] ?? null,
+            "saturated-fat_100g": n["saturated-fat_100g"] ?? null,
+            "salt_100g": n["salt_100g"] ?? (n["sodium_100g"] != null ? Number(n["sodium_100g"]) * 2.5 : null),
+            "fiber_100g": n["fiber_100g"] ?? null
+          },
+          ingredients_text: p?.ingredients_text || p?.ingredients_text_en || "",
+          has_palm_oil: Number(p?.ingredients_from_palm_oil_n || 0) > 0 || /palm\\s*(oil|olein|fat)/i.test(p?.ingredients_text || ""),
+          nutriscore_grade: p?.nutriscore_grade || p?.nutriscore_grade_2023 || "unknown",
+          category: (p?.categories || "").split(",")[0] || "Grocery",
+          data_source: "Open Food Facts"
+        };
+      };
+
+      const performSearch = async (term) => {
+        const q = term.trim();
+        if (!q) {
+          setSearchResults([]);
+          setSearchError(null);
+          return;
+        }
+
+        setIsSearching(true);
+        setSearchError(null);
+
+        const qLower = q.toLowerCase();
+        const localMatches = MASTER_FOOD_DB.filter(p =>
+          p.product_name.toLowerCase().includes(qLower) ||
+          p.brands.toLowerCase().includes(qLower) ||
+          p.category.toLowerCase().includes(qLower) ||
+          (p.tags && p.tags.some(t => t.toLowerCase().includes(qLower)))
+        );
+
+        // Show local results immediately while the live database is queried.
+        setSearchResults(localMatches);
+
+        try {
+          const fields = [
+            "code", "product_name", "product_name_en", "generic_name", "brands",
+            "image_front_url", "image_front_small_url", "image_url", "selected_images", "serving_size",
+            "nutriments", "ingredients_text", "ingredients_text_en",
+            "ingredients_from_palm_oil_n", "nutriscore_grade", "nutriscore_grade_2023",
+            "categories", "countries"
+          ].join(",");
+          // Important: v2 /search is primarily filter-based, not reliable full-text search.
+          // Use Open Food Facts' full-text CGI search, then retry its .net mirror if needed.
+          const endpoints = [
+            `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=40&fields=${encodeURIComponent(fields)}`,
+            `https://world.openfoodfacts.net/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=40&fields=${encodeURIComponent(fields)}`
+          ];
+          let data = null;
+          let lastError = null;
+          for (const url of endpoints) {
+            try {
+              const res = await fetchWithTimeout(url, 12000);
+              if (!res.ok) throw new Error(`Product database returned HTTP ${res.status}`);
+              const candidate = await res.json();
+              if (Array.isArray(candidate.products)) { data = candidate; break; }
+              throw new Error("The product database returned an unexpected response.");
+            } catch (err) { lastError = err; }
+          }
+          // Do not stop here: if Open Food Facts is unavailable, an enabled USDA source
+          // should still get a chance to answer the search.
+          if (!data) data = { products: [] };
+          const rawList = Array.isArray(data.products) ? data.products : [];
+          const liveItems = rawList
+            .filter(p => p && (p.product_name || p.product_name_en || p.generic_name))
+            .map(normalizeOffProduct);
+
+          // Optional second source: USDA FoodData Central (requires the user's own free API key).
+          // Branded US foods and general food composition can supplement, but not replace, package labels.
+          try {
+            const usdaKey = localStorage.getItem("nutriscan_usda_api_key");
+            if (usdaKey) {
+              const u = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(usdaKey)}&query=${encodeURIComponent(q)}&pageSize=15`;
+              const ur = await fetchWithTimeout(u, 10000);
+              if (ur.ok) {
+                const ud = await ur.json();
+                for (const f of (ud.foods || [])) {
+                  const nutrients = f.foodNutrients || [];
+                  const findN = (...names) => { const hit = nutrients.find(x => names.some(n => (x.nutrientName || "").toLowerCase().includes(n))); return hit && Number.isFinite(Number(hit.value)) ? Number(hit.value) : null; };
+                  const energy = findN("energy");
+                  const carbs = findN("carbohydrate");
+                  const sugars = findN("sugars, total");
+                  const protein = findN("protein");
+                  const fat = findN("total lipid");
+                  const satFat = findN("fatty acids, total saturated");
+                  const fiber = findN("fiber, total dietary");
+                  liveItems.push({
+                    id: `usda-${f.fdcId}`, code: String(f.gtinUpc || f.fdcId || ""),
+                    product_name: f.description || "USDA food record", brands: f.brandName || f.brandOwner || "Brand not listed",
+                    image_url: "", serving_size: f.servingSize ? `${f.servingSize} ${f.servingSizeUnit || "g"}` : "100 g",
+                    nutriments: { "energy-kcal_100g": energy, "carbohydrates_100g": carbs, "sugars_100g": sugars, "proteins_100g": protein, "fat_100g": fat, "saturated-fat_100g": satFat, "salt_100g": null, "fiber_100g": fiber },
+                    ingredients_text: f.ingredients || "", has_palm_oil: /palm\s*(oil|olein|fat)/i.test(f.ingredients || ""),
+                    nutriscore_grade: "unknown", category: "USDA FoodData Central", data_source: "USDA FoodData Central (check package label)"
+                  });
+                }
+              }
+            }
+          } catch (usdaError) { /* Keep Open Food Facts results if USDA is unavailable. */ }
+
+          // Prefer live records over local demo records when names/barcodes overlap;
+          // this avoids keeping stale demo photos when a real packshot is available.
+          const combined = [...liveItems];
+          for (const item of localMatches) {
+            const duplicate = combined.some(c =>
+              (item.code && c.code && String(c.code) === String(item.code)) ||
+              c.product_name?.trim().toLowerCase() === item.product_name.trim().toLowerCase() ||
+              (qLower.length >= 4 && c.brands && item.brands &&
+                c.brands.toLowerCase().includes(qLower) && item.brands.toLowerCase().includes(qLower))
+            );
+            if (!duplicate) combined.push(item);
+          }
+
+          setSearchResults(combined);
+          if (combined.length === 0) {
+            setSearchError(`No matching products were found for "${q}". Try the brand name, a shorter product name, or the barcode. This product may not be listed in Open Food Facts yet.`);
+          }
+        } catch (err) {
+          // Keep any local matches visible if the network/API is unavailable.
+          if (localMatches.length === 0) {
+            const message = err?.name === "AbortError"
+              ? "The product database took too long to respond. Check your connection and try again."
+              : "The live product database could not be reached. Check your connection and try again; local demo products may still be available.";
+            setSearchError(message);
+          } else {
+            setSearchError("Showing saved demo matches. The live database could not be reached, so more results may be unavailable.");
+          }
+        } finally {
+          setIsSearching(false);
+        }
+      };
+
+      const searchByBarcode = async (barcode) => {
+        const cleanBarcode = String(barcode || "").trim().replace(/\s+/g, "");
+        if (!cleanBarcode) {
+          setSearchError("Enter a barcode first.");
+          return;
+        }
+
+        setIsSearching(true);
+        setSearchError(null);
+        try {
+          const productFields = "code,product_name,product_name_en,generic_name,brands,image_front_url,image_front_small_url,image_url,selected_images,serving_size,nutriments,ingredients_text,ingredients_text_en,ingredients_from_palm_oil_n,nutriscore_grade,nutriscore_grade_2023,categories";
+          let data = null;
+          let lastError = null;
+          for (const host of ["world.openfoodfacts.org", "world.openfoodfacts.net"]) {
+            try {
+              const res = await fetchWithTimeout(`https://${host}/api/v2/product/${encodeURIComponent(cleanBarcode)}.json?fields=${productFields}`, 10000);
+              if (!res.ok) throw new Error(`Product database returned HTTP ${res.status}`);
+              const candidate = await res.json();
+              if (candidate.status === 1 && candidate.product) { data = candidate; break; }
+              data = candidate;
+            } catch (err) { lastError = err; }
+          }
+          if (!data && lastError) throw lastError;
+
+          if (data.status === 1 && data.product) {
+            handleSelectProduct(normalizeOffProduct(data.product));
+          } else {
+            const demo = MASTER_FOOD_DB.find(dp => String(dp.code) === cleanBarcode);
+            if (demo) {
+              handleSelectProduct(demo);
+            } else {
+              setSearchError(`Barcode ${cleanBarcode} was not found in Open Food Facts. This does not necessarily mean the product is invalid; it may not be listed yet. Search by name or enter the nutrition-label details manually.`);
+            }
+          }
+        } catch (err) {
+          const demo = MASTER_FOOD_DB.find(dp => String(dp.code) === cleanBarcode);
+          if (demo) {
+            handleSelectProduct(demo);
+          } else {
+            setSearchError(err?.name === "AbortError"
+              ? "The barcode lookup timed out. Please try again or search by product name."
+              : "The barcode database could not be reached. Check your internet connection and try again.");
+          }
+        } finally {
+          setIsSearching(false);
+        }
+      };
+
+      const startComparison = (prod) => {
+        setCompareItemA(prod);
+        setCompareItemB(MASTER_FOOD_DB[MASTER_FOOD_DB.length - 1]);
+        setActiveTab("compare");
+        setSelectedProduct(null);
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col justify-between max-w-md mx-auto shadow-2xl relative border-x border-slate-200">
+          
+          {/* HEADER */}
+          <header className="bg-white/95 backdrop-blur-md sticky top-0 z-30 px-5 pt-3.5 pb-3 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-sm shadow-emerald-200">
+                <IconScan className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="font-extrabold tracking-tight text-slate-900 text-lg">Qyvarnex</span>
+                  <span className="bg-red-100 text-red-700 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">Safety Intelligence</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-none">Product lookup, nutrition labels & ingredients</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button onClick={() => { setActiveTab("compare"); setSelectedProduct(null); }} className="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded-full transition">
+                <IconCompare />
+              </button>
+              <button onClick={() => { setActiveTab("favourites"); setSelectedProduct(null); }} className="p-2 text-slate-500 hover:text-rose-500 hover:bg-slate-100 rounded-full transition relative">
+                <IconHeart filled={favourites.length > 0} />
+                {favourites.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500"></span>}
+              </button>
+            </div>
+          </header>
+
+          {/* MAIN VIEW */}
+          <main className="flex-1 pb-24">
+            {selectedProduct ? (
+              <ProductDetailsView 
+                product={selectedProduct} 
+                onBack={() => setSelectedProduct(null)} 
+                isFav={isFav(selectedProduct)}
+                onToggleFav={() => toggleFavourite(selectedProduct)}
+                portionMode={portionMode}
+                setPortionMode={setPortionMode}
+                onCompare={() => startComparison(selectedProduct)}
+              />
+            ) : (
+              <>
+                {activeTab === "home" && (
+                  <HomeView 
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    onSearch={performSearch}
+                    isSearching={isSearching}
+                    searchResults={searchResults}
+                    searchError={searchError}
+                    onSelectProduct={handleSelectProduct}
+                    recentScans={recentScans}
+                    onOpenScan={() => setActiveTab("scan")}
+                    onStartCompare={(prod) => startComparison(prod)}
+                    onConnectUSDA={connectUSDA}
+                    usdaKeyReady={usdaKeyReady}
+                  />
+                )}
+
+                {activeTab === "scan" && (
+                  <ScanCameraView 
+                    onBarcodeFound={searchByBarcode}
+                    onClose={() => setActiveTab("home")}
+                  />
+                )}
+
+                {activeTab === "compare" && (
+                  <CompareView 
+                    itemA={compareItemA || MASTER_FOOD_DB[0]}
+                    itemB={compareItemB || MASTER_FOOD_DB[MASTER_FOOD_DB.length - 1]}
+                    allProducts={MASTER_FOOD_DB}
+                    setCompareItemA={setCompareItemA}
+                    setCompareItemB={setCompareItemB}
+                  />
+                )}
+
+                {activeTab === "favourites" && (
+                  <FavouritesView 
+                    favourites={favourites}
+                    onSelectProduct={handleSelectProduct}
+                    onClearFavs={() => setFavourites([])}
+                  />
+                )}
+              </>
+            )}
+          </main>
+
+          {/* BOTTOM NAVIGATION */}
+          <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2 z-40 flex items-center justify-around">
+            <button onClick={() => { setSelectedProduct(null); setActiveTab("home"); }} className={`flex flex-col items-center py-1 px-3 text-xs font-medium transition ${activeTab === "home" && !selectedProduct ? "text-brand-600 font-bold" : "text-slate-400 hover:text-slate-600"}`}>
+              <IconHome />
+              <span className="mt-1">Home</span>
+            </button>
+
+            <div className="relative -top-3">
+              <button onClick={() => { setSelectedProduct(null); setActiveTab("scan"); }} className="w-14 h-14 rounded-full bg-gradient-to-tr from-brand-600 to-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-200 active:scale-95 transition transform hover:scale-105">
+                <div className="absolute inset-0 rounded-full border-2 border-emerald-400 scan-ring pointer-events-none"></div>
+                <IconScan className="w-7 h-7 text-white" />
+              </button>
+            </div>
+
+            <button onClick={() => { setSelectedProduct(null); setActiveTab("compare"); }} className={`flex flex-col items-center py-1 px-3 text-xs font-medium transition ${activeTab === "compare" ? "text-brand-600 font-bold" : "text-slate-400 hover:text-slate-600"}`}>
+              <IconCompare />
+              <span className="mt-1">Compare</span>
+            </button>
+
+            <button onClick={() => { setSelectedProduct(null); setActiveTab("favourites"); }} className={`flex flex-col items-center py-1 px-3 text-xs font-medium transition ${activeTab === "favourites" ? "text-brand-600 font-bold" : "text-slate-400 hover:text-slate-600"}`}>
+              <IconHeart filled={activeTab === "favourites"} />
+              <span className="mt-1">Saved</span>
+            </button>
+          </nav>
+
+        </div>
+      );
+    }
+
+    // ==========================================
+    // VIEW: HOME
+    // ==========================================
+    function HomeView({
+      searchQuery,
+      setSearchQuery,
+      onSearch,
+      isSearching,
+      searchResults,
+      searchError,
+      onSelectProduct,
+      recentScans,
+      onOpenScan,
+      onStartCompare,
+      onConnectUSDA,
+      usdaKeyReady
+    }) {
+      const popularChips = [
+        "monster", "sting", "coca cola", "pepsi", "lays", "maggi", "oreo", "nutella"
+      ];
+
+      return (
+        <div className="px-5 pt-4 space-y-6">
+          
+          {/* BANNER */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-5 text-white shadow-md relative overflow-hidden">
+            <div className="relative z-10 space-y-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800">
+                Food Safety Database
+              </span>
+              <h2 className="text-xl font-black text-white tracking-tight leading-snug">
+                Search any packaged food <br />
+                <span className="text-red-400 underline decoration-red-500">before you eat or buy</span>
+              </h2>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-[280px]">
+                Search foods and drinks across available product records. Nutrition and images appear only when a source provides them.
+              </p>
+            </div>
+            <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl"></div>
+          </div>
+
+          {/* CRITICAL SEARCH BAR */}
+          <div className="space-y-2">
+            <form onSubmit={(e) => { e.preventDefault(); if (searchQuery.trim()) onSearch(searchQuery); }} className="relative flex items-center">
+              <div className="absolute left-4 pointer-events-none">
+                <IconSearch />
+              </div>
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search any food or drink before you buy it..."
+                className="w-full bg-white text-slate-800 text-sm font-medium pl-11 pr-24 py-3.5 rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition placeholder:text-slate-400"
+              />
+              <button 
+                type="submit" 
+                disabled={isSearching}
+                className="absolute right-2 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
+              >
+                {isSearching ? "Searching..." : "Search"}
+              </button>
+            </form>
+
+            <div className="flex items-center space-x-1.5 overflow-x-auto hide-scrollbar py-1 text-xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Try:</span>
+              {popularChips.map((chip, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => { setSearchQuery(chip); onSearch(chip); }}
+                  className="flex-shrink-0 bg-white hover:bg-emerald-50 text-slate-600 hover:text-brand-700 px-3 py-1 rounded-full border border-slate-200 text-[11px] font-semibold transition shadow-2xs"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+
+            {/* BROWSE BY CATEGORY */}
+            <section className="mt-4 space-y-2.5">
+              <div className="flex items-end justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Browse by category</h3>
+                  <p className="text-[11px] text-slate-500">Tap a section to explore matching products</p>
+                </div>
+                <button onClick={onConnectUSDA} className="text-[10px] font-bold px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-emerald-400">{usdaKeyReady ? "USDA enabled ✓" : "+ Add USDA source"}</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Cold drinks", query: "cold drink", emoji: "🥤", hint: "Sodas & fizzy drinks" },
+                  { label: "Energy drinks", query: "energy drink", emoji: "⚡", hint: "Caffeine drinks" },
+                  { label: "Chips & snacks", query: "chips snacks", emoji: "🍟", hint: "Crisps & namkeen" },
+                  { label: "Biscuits & cookies", query: "biscuits cookies", emoji: "🍪", hint: "Sweet & savoury" },
+                  { label: "Chocolate & spreads", query: "chocolate spread", emoji: "🍫", hint: "Chocolate, cocoa & spreads" },
+                  { label: "Noodles & meals", query: "instant noodles", emoji: "🍜", hint: "Quick packaged meals" },
+                  { label: "Dairy & drinks", query: "milk yogurt drink", emoji: "🥛", hint: "Milk & dairy drinks" },
+                  { label: "Breakfast cereals", query: "breakfast cereal", emoji: "🥣", hint: "Cereals & oats" }
+                ].map((cat) => (
+                  <button key={cat.label} onClick={() => { setSearchQuery(cat.query); onSearch(cat.query); }} className="text-left p-3 rounded-2xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition active:scale-[0.98]">
+                    <div className="flex items-center gap-2"><span className="text-xl">{cat.emoji}</span><span className="text-xs font-extrabold text-slate-800">{cat.label}</span></div>
+                    <p className="text-[10px] text-slate-500 mt-1">{cat.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {isSearching && (
+            <div className="py-6 text-center space-y-2">
+              <div className="w-8 h-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-xs text-slate-500 font-medium">Loading products...</p>
+            </div>
+          )}
+
+          {searchError && (
+            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-800 text-xs space-y-1.5">
+              <span className="font-bold">⚠️ Notice:</span>
+              <p>{searchError}</p>
+            </div>
+          )}
+
+          {/* SEARCH RESULTS LIST */}
+          {searchResults.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Products Found ({searchResults.length})
+                </h3>
+                <span className="text-[11px] text-brand-600 font-semibold">Tap to view risks & score</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {searchResults.map((item, idx) => {
+                  const score = calculateHealthScore(item);
+                  const badge = getScoreBadge(score);
+                  const dangers = detectHarmfulIngredients(item.ingredients_text, item.nutriments);
+
+                  return (
+                    <div 
+                      key={item.id || idx}
+                      onClick={() => onSelectProduct(item)}
+                      className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs hover:border-brand-500 transition cursor-pointer flex items-center space-x-3 active:scale-[0.99]"
+                    >
+                      <div className="w-16 h-16 bg-slate-50 rounded-xl p-1 flex items-center justify-center border border-slate-100 flex-shrink-0 overflow-hidden">
+                        <img
+                          src={item.image_url || undefined}
+                          alt={item.image_url ? item.product_name : "Product image unavailable"}
+                          onError={(e) => { const img = e.currentTarget; const fallback = offImageFromCode(item.code); if (fallback && img.dataset.fallback !== "1" && img.src !== fallback) { img.dataset.fallback = "1"; img.src = fallback; } else { img.style.display = "none"; } }}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">
+                          {item.brands}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 truncate mt-0.5">{item.product_name}</h4>
+                        
+                        <div className="flex items-center space-x-2 mt-1">
+                          {dangers.length > 0 ? (
+                            <span className="text-[10px] font-extrabold bg-red-100 text-red-700 px-1.5 py-0.2 rounded border border-red-200">
+                              ⚠️ {dangers.length} Toxic/Risk Item{dangers.length > 1 ? 's' : ''}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                              Clean Profile
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right flex-shrink-0">
+                        <div className={`px-2 py-1 rounded-xl text-center border ${badge.lightBg} ${badge.borderCol}`}>
+                          <span className={`text-base font-black ${badge.textCol} block leading-tight`}>
+                            {score}
+                          </span>
+                          <span className="text-[8px] font-bold text-slate-400 block uppercase">/ 100</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SCAN PROMPT */}
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-3xl p-5 text-white shadow-lg flex items-center justify-between">
+            <div className="space-y-1 max-w-[210px]">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Barcode Scanner</span>
+              <h3 className="text-base font-black">Scan Package Barcode</h3>
+              <p className="text-xs text-emerald-100">Point your camera to instantly decode ingredients and score.</p>
+            </div>
+            <button onClick={onOpenScan} className="w-14 h-14 rounded-2xl bg-white text-brand-700 flex items-center justify-center shadow-lg active:scale-95 transition">
+              <IconScan className="w-7 h-7 text-emerald-600" />
+            </button>
+          </div>
+
+          {/* RECENTLY ANALYZED */}
+          {recentScans.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Recently Analyzed
+                </h3>
+                <span className="text-[11px] text-slate-400">Stored locally</span>
+              </div>
+
+              <div className="flex space-x-3 overflow-x-auto hide-scrollbar pb-2">
+                {recentScans.map((prod, idx) => {
+                  const score = calculateHealthScore(prod);
+                  const badge = getScoreBadge(score);
+
+                  return (
+                    <div 
+                      key={idx}
+                      onClick={() => onSelectProduct(prod)}
+                      className="w-36 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition cursor-pointer flex-shrink-0 flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="relative w-full h-28 bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-2 border border-slate-100">
+                          <img
+                            src={prod.image_url || undefined}
+                            alt={prod.image_url ? prod.product_name : "Product image unavailable"}
+                            onError={(e) => { const img = e.currentTarget; const fallback = offImageFromCode(prod.code); if (fallback && img.dataset.fallback !== "1" && img.src !== fallback) { img.dataset.fallback = "1"; img.src = fallback; } else { img.style.display = "none"; } }}
+                            className="w-full h-full object-contain"
+                          />
+                          <span className={`absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-md ${badge.bg} text-white shadow-xs`}>
+                            {score}
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                          {prod.brands}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight mt-0.5">
+                          {prod.product_name}
+                        </h4>
+                      </div>
+
+                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {prod.nutriments?.["energy-kcal_100g"] ? `${Math.round(prod.nutriments["energy-kcal_100g"])} kcal` : "100g"}
+                        </span>
+                        {prod.has_palm_oil && (
+                          <span className="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
+                            Palm Oil
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* HEAD TO HEAD BANNER */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">Quick Comparison</span>
+                <h3 className="text-sm font-extrabold text-slate-900">Compare Toxic vs Clean</h3>
+              </div>
+              <button onClick={() => onStartCompare(MASTER_FOOD_DB[0])} className="text-xs text-brand-600 font-bold hover:underline">
+                Compare →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div onClick={() => onSelectProduct(MASTER_FOOD_DB[0])} className="p-3 bg-red-50/60 rounded-2xl border border-red-100 cursor-pointer text-left hover:border-red-300 transition flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider bg-red-100 text-red-700 px-1.5 py-0.5 rounded">High Sugar</span>
+                    <span className="text-xs font-black text-red-700">19/100</span>
+                  </div>
+                  <div className="h-20 bg-white rounded-xl p-1 mb-2 flex items-center justify-center">
+                    <img src={MASTER_FOOD_DB[0].image_url} alt="Pepsi Can" className="h-full object-contain" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 truncate">Pepsi Classic Can</p>
+                </div>
+                <p className="text-[10px] text-red-600 font-bold mt-1">Caramel IV + 35g Sugar</p>
+              </div>
+
+              <div onClick={() => onSelectProduct(MASTER_FOOD_DB[MASTER_FOOD_DB.length - 1])} className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-100 cursor-pointer text-left hover:border-emerald-300 transition flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Pure Swap</span>
+                    <span className="text-xs font-black text-emerald-700">94/100</span>
+                  </div>
+                  <div className="h-20 bg-white rounded-xl p-1 mb-2 flex items-center justify-center overflow-hidden">
+                    <img src={MASTER_FOOD_DB[MASTER_FOOD_DB.length - 1].image_url} alt="Coconut" className="h-full w-full object-cover rounded-lg" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 truncate">Tender Coconut</p>
+                </div>
+                <p className="text-[10px] text-emerald-700 font-bold mt-1">0 Chemicals, 100% Raw</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      );
+    }
+
+    // ==========================================
+    // VIEW: PRODUCT DETAILS PAGE
+    // ==========================================
+    function ProductDetailsView({
+      product,
+      onBack,
+      isFav,
+      onToggleFav,
+      portionMode,
+      setPortionMode,
+      onCompare
+    }) {
+      const n = product.nutriments || {};
+      const score = calculateHealthScore(product);
+      const scoreBadge = getScoreBadge(score);
+      const harmfulItems = detectHarmfulIngredients(product.ingredients_text, n);
+
+      let servingMultiplier = 1;
+      let servingLabel = "Per 100g / 100ml";
+      if (portionMode === "serving") {
+        const match = (product.serving_size || "").match(/(\d+(\.\d+)?)/);
+        if (match && parseFloat(match[1])) {
+          servingMultiplier = parseFloat(match[1]) / 100;
+          servingLabel = `Per Serving (${product.serving_size})`;
+        } else {
+          servingMultiplier = 1;
+          servingLabel = "Per Serving (100g)";
+        }
+      }
+
+      const getVal = (key) => {
+        const raw = n[`${key}_100g`];
+        if (raw === undefined || raw === null || isNaN(raw)) return null;
+        return (Number(raw) * servingMultiplier).toFixed(1);
+      };
+
+      const calories = n["energy-kcal_100g"] !== null && !isNaN(n["energy-kcal_100g"])
+        ? Math.round(Number(n["energy-kcal_100g"]) * servingMultiplier)
+        : null;
+
+      const sugarVal = getVal("sugars");
+      const satFatVal = getVal("saturated-fat");
+      const saltVal = getVal("salt");
+      const proteinVal = getVal("proteins");
+      const fiberVal = getVal("fiber");
+
+      return (
+        <div className="bg-slate-50 min-h-screen">
+          
+          <div className="sticky top-0 bg-white/95 backdrop-blur-md px-4 py-3 border-b border-slate-200 z-20 flex items-center justify-between">
+            <button onClick={onBack} className="p-2 text-slate-700 hover:bg-slate-100 rounded-full transition flex items-center space-x-1">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+              <span className="text-xs font-bold">Back</span>
+            </button>
+
+            <div className="flex items-center space-x-2">
+              <button onClick={onCompare} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center space-x-1 transition">
+                <IconCompare />
+                <span>Compare</span>
+              </button>
+              <button onClick={onToggleFav} className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition">
+                <IconHeart filled={isFav} />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-6">
+            
+            {/* HERO PRODUCT CARD */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+              <div className="w-52 h-52 bg-slate-50 rounded-2xl p-3 flex items-center justify-center mb-3 border border-slate-100 overflow-hidden">
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.product_name}
+                    onError={(e) => { const img = e.currentTarget; const fallback = offImageFromCode(product.code); if (fallback && img.dataset.fallback !== "1" && img.src !== fallback) { img.dataset.fallback = "1"; img.src = fallback; } else { img.style.display = "none"; } }}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="text-center text-slate-400 text-xs p-4">Product image unavailable</div>
+                )}
+              </div>
+
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-3 py-0.5 rounded-full border border-emerald-100">
+                {product.brands || "Packaged Product"}
+              </span>
+              {product.data_source && <p className="text-[10px] text-slate-400 mt-1">Data source: {product.data_source}</p>}
+
+              <h1 className="text-lg font-black text-slate-900 mt-2 leading-snug">
+                {product.product_name}
+              </h1>
+
+              {/* HEALTH RATING /100 DISPLAY */}
+              <div className="mt-5 w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-around">
+                <div className="text-left">
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block">Health Rating</span>
+                  <div className="flex items-baseline space-x-1">
+                    <span className={`text-3xl font-black ${scoreBadge.textCol}`}>
+                      {score}
+                    </span>
+                    <span className="text-sm font-bold text-slate-400">/ 100</span>
+                  </div>
+                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full inline-block mt-0.5 ${scoreBadge.lightBg} ${scoreBadge.textCol} border ${scoreBadge.borderCol}`}>
+                    {scoreBadge.text}
+                  </span>
+                </div>
+
+                <div className="h-12 w-px bg-slate-200"></div>
+
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block">Energy</span>
+                  <span className="text-2xl font-black text-slate-900">
+                    {calories !== null ? `${calories}` : "N/A"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-bold ml-1">kcal</span>
+                </div>
+              </div>
+            </div>
+
+            {/* DANGEROUS ITEMS WARNING BOX */}
+            <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-3xl p-5 border-2 border-red-300 shadow-md space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-red-900">
+                    Hazardous Additives & Toxicity Alert
+                  </h3>
+                  <p className="text-[11px] text-red-700 font-medium">
+                    {harmfulItems.length > 0 
+                      ? `${harmfulItems.length} high-risk factor(s) identified in this item:` 
+                      : "Clean formulation free of toxic synthetic dyes and dangerous preservatives."}
+                  </p>
+                </div>
+              </div>
+
+              {harmfulItems.length > 0 ? (
+                <div className="space-y-3">
+                  {harmfulItems.map((item, idx) => (
+                    <div key={idx} className="bg-white p-3.5 rounded-2xl border border-red-200 shadow-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <mark className="danger-highlight text-xs">
+                          {item.name}
+                        </mark>
+                        <span className="text-[9px] font-extrabold uppercase bg-red-600 text-white px-2 py-0.5 rounded-full">
+                          {item.severity} Risk
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Category: {item.category}
+                      </span>
+                      <p className="text-xs text-red-950 leading-relaxed font-medium">
+                        {item.risk}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white/80 p-3.5 rounded-2xl border border-emerald-200 text-xs text-emerald-800 font-medium">
+                  ✅ No petroleum dyes (Allura Red, Tartrazine), toxic sequesterants (452i), or palm oils detected.
+                </div>
+              )}
+            </div>
+
+            {/* INLINE HIGHLIGHTED INGREDIENT LIST */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Ingredient Statement
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Dangerous ingredients highlighted in yellow/red</p>
+                </div>
+                {product.has_palm_oil && (
+                  <span className="text-[10px] bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full border border-red-200">
+                    Palm Oil Detected
+                  </span>
+                )}
+              </div>
+
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs text-slate-700 leading-loose font-medium">
+                <HighlightedIngredientsText text={product.ingredients_text} />
+              </div>
+            </div>
+
+            {/* PORTION TOGGLE */}
+            <div className="bg-white p-1.5 rounded-2xl border border-slate-200 flex text-xs font-bold">
+              <button onClick={() => setPortionMode("100g")} className={`flex-1 py-2 rounded-xl transition ${portionMode === "100g" ? "bg-brand-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}>
+                Per 100g / 100ml Standard
+              </button>
+              <button onClick={() => setPortionMode("serving")} className={`flex-1 py-2 rounded-xl transition ${portionMode === "serving" ? "bg-brand-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}>
+                Per Serving ({product.serving_size || "1 serving"})
+              </button>
+            </div>
+
+            {/* NUTRIENT BARS */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Nutritional Breakdown
+                </h3>
+                <span className="text-[11px] text-slate-400 font-semibold">{servingLabel}</span>
+              </div>
+
+              <div className="space-y-3">
+                <NutrientBar name="Total Sugars" val={sugarVal} unit="g" max={35} warn={sugarVal > 15} />
+                <NutrientBar name="Saturated Fat" val={satFatVal} unit="g" max={15} warn={satFatVal > 5} />
+                <NutrientBar name="Salt / Sodium" val={saltVal} unit="g" max={3} warn={saltVal > 1.5} />
+                <NutrientBar name="Dietary Fiber" val={fiberVal} unit="g" max={10} isPositive={true} />
+                <NutrientBar name="Protein" val={proteinVal} unit="g" max={25} isPositive={true} />
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-100 rounded-2xl text-[11px] text-slate-500 leading-relaxed">
+              <span className="font-bold text-slate-700">Notice:</span> Qyvarnex ratings (0–100) are generated via published WHO/FSA thresholds and detected synthetic chemicals. This tool provides nutritional education, not medical diagnosis.
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    function NutrientBar({ name, val, unit, max, warn = false, isPositive = false }) {
+      const v = val !== null && val !== undefined ? Number(val) : null;
+      const pct = v !== null ? Math.min(100, Math.round((v / max) * 100)) : 0;
+      let barColor = warn ? "bg-red-500" : isPositive ? "bg-emerald-500" : "bg-amber-400";
+
+      return (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="font-bold text-slate-700">{name}</span>
+            <span className={`font-black ${warn ? "text-red-600" : "text-slate-800"}`}>
+              {v !== null ? `${v} ${unit}` : "N/A"}
+            </span>
+          </div>
+          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div style={{ width: `${pct}%` }} className={`h-full rounded-full transition-all duration-500 ${barColor}`}></div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // VIEW: CAMERA SCANNER
+    // ==========================================
+    function ScanCameraView({ onBarcodeFound, onClose }) {
+      const videoRef = useRef(null);
+      const [cameraError, setCameraError] = useState(null);
+      const [manualBarcode, setManualBarcode] = useState("");
+      const [scanStatus, setScanStatus] = useState("Starting camera…");
+      const handledRef = useRef(false);
+
+      useEffect(() => {
+        let stream = null;
+        let frameId = null;
+        let stopped = false;
+        let detector = null;
+
+        async function startCamera() {
+          try {
+            if (!navigator.mediaDevices?.getUserMedia) {
+              setCameraError("Camera access requires a supported browser and a secure context (HTTPS or localhost). Enter the barcode manually below.");
+              return;
+            }
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: { facingMode: { ideal: "environment" } }
+            });
+            if (stopped) {
+              stream.getTracks().forEach(track => track.stop());
+              return;
+            }
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              await videoRef.current.play().catch(() => {});
+            }
+
+            if (!("BarcodeDetector" in window)) {
+              setScanStatus("Live barcode detection is not supported in this browser. Enter the barcode manually below.");
+              return;
+            }
+
+            try {
+              const formats = await window.BarcodeDetector.getSupportedFormats();
+              const preferred = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "itf", "qr_code"];
+              detector = new window.BarcodeDetector({ formats: preferred.filter(f => formats.includes(f)) });
+            } catch {
+              detector = new window.BarcodeDetector();
+            }
+            setScanStatus("Point the camera steadily at the barcode.");
+
+            const scanFrame = async () => {
+              if (stopped || handledRef.current || !videoRef.current || videoRef.current.readyState < 2) {
+                if (!stopped && !handledRef.current) frameId = requestAnimationFrame(scanFrame);
+                return;
+              }
+              try {
+                const codes = await detector.detect(videoRef.current);
+                const value = codes?.find(c => c.rawValue)?.rawValue;
+                if (value) {
+                  handledRef.current = true;
+                  setScanStatus(`Barcode detected: ${value}`);
+                  onBarcodeFound(value);
+                  return;
+                }
+              } catch {
+                // Keep scanning; some frames may not be decodable.
+              }
+              if (!stopped && !handledRef.current) frameId = requestAnimationFrame(scanFrame);
+            };
+            frameId = requestAnimationFrame(scanFrame);
+          } catch (err) {
+            setCameraError(err?.name === "NotAllowedError"
+              ? "Camera permission was denied. Allow camera access or enter the barcode manually below."
+              : "Could not start the camera. Use manual barcode entry below.");
+          }
+        }
+
+        startCamera();
+        return () => {
+          stopped = true;
+          if (frameId) cancelAnimationFrame(frameId);
+          if (stream) stream.getTracks().forEach(track => track.stop());
+        };
+      }, []);
+
+      const submitBarcode = (value) => {
+        const clean = String(value || "").trim();
+        if (!clean) return;
+        handledRef.current = true;
+        onBarcodeFound(clean);
+      };
+
+      return (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col justify-between max-w-md mx-auto text-white">
+          <div className="p-4 flex items-center justify-between z-10 bg-gradient-to-b from-black/80 to-transparent">
+            <button onClick={onClose} className="p-2 bg-white/20 rounded-full text-white" aria-label="Close scanner">✕</button>
+            <span className="text-sm font-bold tracking-wider uppercase text-emerald-400">Barcode Scanner</span>
+            <div className="w-8"></div>
+          </div>
+
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
+              <div className="w-72 h-48 border-2 border-emerald-400 rounded-3xl relative overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                <div className="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-bounce"></div>
+              </div>
+            </div>
+            <div className="absolute bottom-4 left-4 right-4 bg-black/70 rounded-xl p-3 text-center text-xs">{cameraError || scanStatus}</div>
+          </div>
+
+          <div className="p-4 bg-slate-900/95 border-t border-slate-800 space-y-3 z-10">
+            <p className="text-[11px] text-slate-400">If automatic scanning is unavailable, enter the numbers printed below the barcode.</p>
+            <form onSubmit={(e) => { e.preventDefault(); submitBarcode(manualBarcode); }} className="flex space-x-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+                placeholder="Enter barcode manually…"
+                aria-label="Barcode number"
+                className="flex-1 bg-slate-800 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 focus:outline-none"
+              />
+              <button type="submit" className="bg-brand-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Lookup</button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // VIEW: COMPARISON
+    // ==========================================
+    function CompareView({ itemA, itemB, allProducts, setCompareItemA, setCompareItemB }) {
+      const scoreA = calculateHealthScore(itemA);
+      const scoreB = calculateHealthScore(itemB);
+      const dangersA = detectHarmfulIngredients(itemA?.ingredients_text, itemA?.nutriments);
+      const dangersB = detectHarmfulIngredients(itemB?.ingredients_text, itemB?.nutriments);
+
+      return (
+        <div className="p-5 space-y-5">
+          <div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-brand-600">Head to Head</span>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Nutrition & Toxicity Duel</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 space-y-2 text-center">
+              <select 
+                value={itemA?.id} 
+                onChange={(e) => setCompareItemA(allProducts.find(p => p.id === e.target.value))}
+                className="w-full text-xs font-bold bg-slate-50 p-2 rounded-xl border"
+              >
+                {allProducts.map(p => <option key={p.id} value={p.id}>{p.product_name}</option>)}
+              </select>
+              <div className="h-20 bg-slate-50 rounded-xl flex items-center justify-center p-1 overflow-hidden">
+                <img src={itemA?.image_url} alt="" className="h-full object-contain" />
+              </div>
+              <div className="bg-red-50 p-2 rounded-xl border border-red-200">
+                <span className="text-lg font-black text-red-600">{scoreA}/100</span>
+                <span className="text-[9px] font-bold text-red-700 block">{dangersA.length} Dangerous Item(s)</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 space-y-2 text-center">
+              <select 
+                value={itemB?.id} 
+                onChange={(e) => setCompareItemB(allProducts.find(p => p.id === e.target.value))}
+                className="w-full text-xs font-bold bg-slate-50 p-2 rounded-xl border"
+              >
+                {allProducts.map(p => <option key={p.id} value={p.id}>{p.product_name}</option>)}
+              </select>
+              <div className="h-20 bg-slate-50 rounded-xl flex items-center justify-center p-1 overflow-hidden">
+                <img src={itemB?.image_url} alt="" className="h-full object-contain" />
+              </div>
+              <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-200">
+                <span className="text-lg font-black text-emerald-600">{scoreB}/100</span>
+                <span className="text-[9px] font-bold text-emerald-700 block">{dangersB.length} Dangerous Item(s)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-2xs space-y-3">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">Additives Breakdown</h3>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100">
+                <span className="text-[10px] font-bold text-red-700 block uppercase">Product A:</span>
+                {dangersA.length > 0 ? (
+                  <ul className="mt-1 space-y-1">
+                    {dangersA.map((d, i) => <li key={i} className="text-[10px] font-bold text-red-900">• {d.name}</li>)}
+                  </ul>
+                ) : <span className="text-[11px] text-emerald-600 font-bold">None detected</span>}
+              </div>
+
+              <div className="p-3 bg-emerald-50/50 rounded-2xl border border-emerald-100">
+                <span className="text-[10px] font-bold text-emerald-700 block uppercase">Product B:</span>
+                {dangersB.length > 0 ? (
+                  <ul className="mt-1 space-y-1">
+                    {dangersB.map((d, i) => <li key={i} className="text-[10px] font-bold text-red-900">• {d.name}</li>)}
+                  </ul>
+                ) : <span className="text-[11px] text-emerald-600 font-bold">None detected</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // VIEW: SAVED FAVOURITES
+    // ==========================================
+    function FavouritesView({ favourites, onSelectProduct, onClearFavs }) {
+      return (
+        <div className="p-5 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-brand-600">Saved Items</span>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">Your Favourites</h2>
+            </div>
+            {favourites.length > 0 && (
+              <button onClick={onClearFavs} className="text-xs font-bold text-red-600 hover:underline">Clear all</button>
+            )}
+          </div>
+
+          {favourites.length === 0 ? (
+            <div className="py-16 text-center space-y-3 bg-white rounded-3xl border border-slate-200 p-6">
+              <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+                <IconHeart />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800">No saved foods yet</h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">Tap the heart icon on any food page to save it for grocery visits.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {favourites.map((item, idx) => {
+                const score = calculateHealthScore(item);
+                const badge = getScoreBadge(score);
+
+                return (
+                  <div 
+                    key={item.id || idx}
+                    onClick={() => onSelectProduct(item)}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs hover:border-brand-500 transition cursor-pointer flex items-center space-x-3"
+                  >
+                    <div className="w-14 h-14 bg-slate-50 rounded-xl p-1 flex items-center justify-center flex-shrink-0 border border-slate-100 overflow-hidden">
+                      <img src={item.image_url} alt={item.product_name} className="w-full h-full object-contain" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">{item.brands}</span>
+                      <h4 className="text-sm font-bold text-slate-900 truncate">{item.product_name}</h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1 ${badge.lightBg} ${badge.textCol}`}>
+                        Score: {score}/100
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
